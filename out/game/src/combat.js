@@ -1,7 +1,0 @@
-import{panic}from'./pedestrians.js';
-export class Weapon{constructor(){this.ammo=48;this.cooldown=0;this.bullets=[];this.flash=0;this.recoil=0;}}
-export function punch(player,people){const target=people.find(p=>p.alive&&Math.hypot(p.x-player.x,p.y-player.y)<65);if(target){target.alive=false;return true;}return false;}
-export function firePistol(weapon,player,people){if(weapon.cooldown>0||weapon.ammo<=0)return false;weapon.ammo--;weapon.cooldown=.25;weapon.flash=.12;weapon.recoil=1;const a=player.angle+(Math.random()-.5)*.05;weapon.bullets.push({x:player.x+Math.cos(a)*35,y:player.y+Math.sin(a)*35,vx:Math.cos(a)*720,vy:Math.sin(a)*720,life:1.3});panic(people,player.x,player.y,150);return true;}
-export function updateBullets(weapon,dt){weapon.cooldown=Math.max(0,weapon.cooldown-dt);weapon.flash=Math.max(0,weapon.flash-dt);weapon.recoil=Math.max(0,weapon.recoil-dt*5);for(const b of weapon.bullets){b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;}weapon.bullets=weapon.bullets.filter(b=>b.life>0);}
-export function registerHits(weapon,targets){for(const b of weapon.bullets)for(const t of targets)if(t.alive&&Math.hypot(t.x-b.x,t.y-b.y)<25){t.alive=false;b.life=0;}}
-export function muzzleFlash(ctx,x,y,angle,size=20){ctx.save();ctx.translate(x,y);ctx.rotate(angle);ctx.fillStyle='#fff3ba';ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(size,-size*.4);ctx.lineTo(size*1.8,0);ctx.lineTo(size,size*.4);ctx.closePath();ctx.fill();ctx.restore();}
