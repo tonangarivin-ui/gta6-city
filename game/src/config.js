@@ -1,61 +1,12 @@
-// Every tuning number and colour in one place. The playfield is a fixed 1280x720 logical area;
-// the renderer scales it to the window, so no rule below depends on the screen size.
-
-export const FIELD = { width: 1280, height: 720, groundY: 664 };
-
-/** The simulation's fixed step, in seconds: 60 updates a second whatever the display's rate. */
-export const STEP = 1 / 60;
-
-export const PLAYER = {
-  width: 72,
-  height: 24,
-  speed: 560,
-  invulnerable: 1.5,
-};
-
-export const LIVES = 3;
-
-export const BLOCK = {
-  minWidth: 40,
-  maxWidth: 110,
-  height: 36,
-  speed: 240,
-  speedPerLevel: 30,
-  speedJitter: 90,
-  interval: 0.55,
-  intervalScale: 0.88,
-  minInterval: 0.14,
-  dodgePoints: 1,
-};
-
-export const COIN = {
-  size: 24,
-  speed: 190,
-  speedPerLevel: 14,
-  interval: 1.4,
-  intervalJitter: 0.8,
-  points: 10,
-};
-
-/** Seconds of play per level, and the last level: speeds and spawn rates stop growing there. */
-export const LEVEL = { seconds: 12, max: 12 };
-
-/** How many falling things can exist at once; the pool is allocated once, at boot. */
-export const POOL_SIZE = 64;
-
-export const PALETTE = {
-  backdrop: '#11141b',
-  sky: '#1b1f2a',
-  ground: '#2a3040',
-  player: '#4fc3f7',
-  block: '#e5534b',
-  coin: '#f2c94c',
-  panel: '#252b38',
-  text: '#eef1f5',
-  muted: '#8b93a3',
-};
-
-export const FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif';
-
-/** Where the best score is kept between visits (this browser only). */
-export const BEST_KEY = 'block-dodger.best';
+export const WORLD={width:2400,height:1800,road:74,block:220,seaX:1960,horizon:.31};
+export const SPEED={walk:145,sprint:225,car:390,reverse:125,turn:2.35};
+export const HANDLING={traction:5.2,brake:3.8,drift:.87,collision:0.42};
+export const WANTED_LEVELS=[0,1,2,3,4,5];
+export const SPAWN={x:920,y:870,angle:-Math.PI/2};
+export const PALETTE={skyTop:'#e87e59',sky:'#ffd18a',sea:'#43b9bd',sand:'#eac58d',road:'#39434a',sidewalk:'#d8b78b',palm:'#28674f',sun:'#fff0bd',ink:'#172a38',glass:'#9edbd7',police:'#e7f4f2',gold:'#f6cb67',coral:'#f1795d',green:'#6f9b6d'};
+export const DISTRICTS=[{name:'Marina Sol',x:0,y:0,w:720,h:720,color:'#e7a477'},{name:'Glassline',x:720,y:0,w:650,h:760,color:'#87b9b0'},{name:'Old Lantern',x:0,y:760,w:750,h:800,color:'#d8a36e'},{name:'Palm Market',x:750,y:760,w:700,h:800,color:'#e0c37d'},{name:'Tideworks',x:1450,y:0,w:510,h:1500,color:'#bc9a7d'}];
+export const BLOCK_COLORS=['#eead83','#e6c28e','#a9c6bb','#db957a','#93aea5','#e6d5b2','#d3a17e'];
+export const ROAD_NAMES=['Sunset Causeway','Cobalt Avenue','Lantern Street','Pelican Drive','Citrus Way'];
+export const TIME={step:1/60,maxFrame:.1};
+export const CAMERA={fov:680,follow:0.12,height:145,distance:320,lookAhead:145};
+export const UI={width:1280,height:720,panel:'#152b36dd',line:'#f7dcad',text:'#fff5dc',muted:'#b4c7c3'};

@@ -1,141 +1,24 @@
-// Drawing only: the world's state and the current screen in, pixels out. The 1280x720 playfield
-// is scaled to fit the window and centred, the margin filled with the backdrop colour. Flat
-// rectangles and circles, canvas text for the HUD and the panels. Text that holds a number is
-// rebuilt only when the number changes, so a frame allocates nothing.
-import { FIELD, FONT, LIVES, PALETTE } from './config.js';
-import { KIND_COIN } from './world.js';
-
-export const SCREEN_TITLE = 'title';
-export const SCREEN_PLAY = 'play';
-export const SCREEN_PAUSED = 'paused';
-export const SCREEN_OVER = 'over';
-
-/** The panel's width; its height grows with its lines: room for the title, the lines and the prompt. */
-const PANEL = { width: 600, top: 134, line: 34, bottom: 70 };
-const LIFE_SIZE = 20;
-const LIFE_GAP = 8;
-
-function cachedLabel(prefix) {
-  let value = -1;
-  let text = '';
-  return function label(next) {
-    if (next !== value) {
-      value = next;
-      text = prefix + next;
-    }
-    return text;
-  };
+import{PALETTE,WORLD,UI}from'./config.js';import{projectPoint}from'./math3d.js';import{drawHud}from'./hud.js';import{drawMinimap}from'./minimap.js';import{drawTitleScreen,drawPauseMenu}from'./menu.js';
+export class Renderer{constructor(canvas,ctx){this.canvas=canvas;this.ctx=ctx;this.width=1280;this.height=720;this.camera={x:0,y:0,z:120,angle:0};this.time=0;}
+ resize(){const d=Math.min(2,devicePixelRatio||1),w=this.canvas.clientWidth,h=this.canvas.clientHeight;if(this.canvas.width!==Math.round(w*d)||this.canvas.height!==Math.round(h*d)){this.canvas.width=Math.round(w*d);this.canvas.height=Math.round(h*d);}this.ctx.setTransform(this.canvas.width/1280,0,0,this.canvas.height/720,0,0);}
+ draw(state){this.resize();const c=this.ctx;this.time+=1/60;this.camera=state.camera||this.camera;c.save();c.translate(0,0);this.drawSky();this.drawGround(state.city);this.drawWorldDepthSorted(state);this.drawShadows(state);state.effects?.draw(c);this.drawPost(state);if(state.scene==='title')drawTitleScreen(c,this.time);else{drawHud(c,{player:state.player,wanted:state.wanted,objective:state.objective,radio:state.radio,message:state.message});drawMinimap(c,state.player,state.city,state.cars,state.wanted.cruisers,state.mission?.target);if(state.scene==='paused')drawPauseMenu(c,state.menu.selection);}}
+ drawSky(){const c=this.ctx,g=c.createLinearGradient(0,0,0,720);g.addColorStop(0,PALETTE.skyTop);g.addColorStop(.31,PALETTE.sky);g.addColorStop(.53,'#ffe1aa');g.addColorStop(.54,'#557e80');g.addColorStop(1,'#184658');c.fillStyle=g;c.fillRect(0,0,1280,720);this.drawSunAndFlare();}
+ drawSunAndFlare(){const c=this.ctx;const g=c.createRadialGradient(1010,195,8,1010,195,160);g.addColorStop(0,'#fff6d4');g.addColorStop(.38,'#ffd77caa');g.addColorStop(1,'#f08c5900');c.fillStyle=g;c.fillRect(810,0,400,400);c.fillStyle='#fff2cb';c.beginPath();c.arc(1010,195,37,0,Math.PI*2);c.fill();}
+ drawGround(city){const c=this.ctx;const horizon=260;c.fillStyle='#eac58d';c.fillRect(0,horizon,1280,460);c.fillStyle=PALETTE.sea;c.beginPath();c.moveTo(950,horizon);c.lineTo(1280,horizon);c.lineTo(1280,720);c.lineTo(1040,720);c.closePath();c.fill();c.fillStyle='#f3dfac';for(let i=0;i<20;i++){const y=300+i*22;c.fillRect(1040+(i%3)*18,y,220-(i%4)*24,2);}c.fillStyle='#414b50';c.fillRect(0,380,1280,340);const van=640;for(let i=0;i<8;i++){const y=400+i*44;c.fillStyle=i%2?'#d4b78d':'#c7ab84';c.fillRect(0,y,1280,4);}for(let i=0;i<9;i++){const x=van+(i-4)*150;c.fillStyle='#e9d299';c.fillRect(x,382,7,338);}c.fillStyle='#f0d79f';for(let i=0;i<16;i++){const y=400+i*37;c.fillRect(van-4,y,8,18);}if(city)this.drawDistantCity(city);}
+ drawDistantCity(city){const c=this.ctx;for(let i=0;i<city.buildings.length;i++){const b=city.buildings[i];if(b.x<280||b.x>1600||b.y<250||b.y>1300)continue;const x=40+(b.x*1.28)%1180,y=270+(b.y%120)*.15,h=20+(i*37)%110,w=25+(i*13)%55;c.fillStyle=b.color;c.fillRect(x,y-h,w,h);c.fillStyle='#f7d995';for(let k=0;k<4;k++)c.fillRect(x+5+k*10,y-h+12,4,6);}}
+ drawWorldDepthSorted(state){const c=this.ctx;const objects=[];for(const b of state.city.buildings)objects.push({kind:'building',obj:b,depth:Math.hypot(b.x-this.camera.x,b.y-this.camera.y)});for(const p of state.city.palms)objects.push({kind:'palm',obj:p,depth:Math.hypot(p.x-this.camera.x,p.y-this.camera.y)});for(const car of [...state.cars,...state.wanted.cruisers])objects.push({kind:'car',obj:car,depth:Math.hypot(car.x-this.camera.x,car.y-this.camera.y)});for(const p of state.people)if(p.alive)objects.push({kind:'person',obj:p,depth:Math.hypot(p.x-this.camera.x,p.y-this.camera.y)});objects.sort((a,b)=>b.depth-a.depth);for(const o of objects){if(o.depth>1150)continue;if(o.kind==='building')this.drawBuilding(o.obj);else if(o.kind==='palm')this.drawPalm(o.obj);else if(o.kind==='car')this.drawCar(o.obj,state.player);else this.drawPerson(o.obj);}if(state.player.vehicle)this.drawCar(state.player.vehicle,state.player,true);else this.drawPerson({...state.player,color:'#fcf0d5',skin:'#a96f56',angle:state.player.angle,phase:this.time,scale:1.5},true);}
+ drawBuilding(b){const c=this.ctx,dx=(b.x-this.camera.x)*.38,dy=(b.y-this.camera.y)*.2,scale=Math.max(.25,1-Math.hypot(dx,dy)/1800),x=640+dx*scale,y=420+dy*scale,w=b.w*.34*scale,h=b.h*.4*scale;c.fillStyle='#283c40aa';c.beginPath();c.ellipse(x+w/2,y+8,w*.72,12*scale,0,0,Math.PI*2);c.fill();c.fillStyle=b.color;c.fillRect(x,y-h,w,h);c.fillStyle='#c5a27c';c.fillRect(x-3,y-h-5,w+6,6);const cols=Math.max(2,Math.floor(w/20));for(let i=0;i<cols;i++){c.fillStyle=i%2?'#99d1c7':'#ffd78e';for(let yy=y-h+15;yy<y-15;yy+=23)c.fillRect(x+8+i*18,yy,7,9);}}
+ drawPalm(p){const c=this.ctx,x=640+(p.x-this.camera.x)*.36,y=420+(p.y-this.camera.y)*.2,s=Math.max(.3,1-Math.hypot(p.x-this.camera.x,p.y-this.camera.y)/1700);c.strokeStyle='#72553d';c.lineWidth=7*s;c.beginPath();c.moveTo(x,y);c.lineTo(x+p.lean*45*s,y-p.height*s);c.stroke();c.fillStyle=PALETTE.palm;for(let i=0;i<7;i++){c.beginPath();c.ellipse(x+p.lean*45*s+Math.cos(i)*15*s,y-p.height*s+Math.sin(i)*5*s,22*s,5*s,i*.5,0,Math.PI*2);c.fill();}}
+ drawCar(car,player,hero=false){const c=this.ctx,x=640+(car.x-this.camera.x)*.42,y=485+(car.y-this.camera.y)*.23,s=Math.max(.35,1-Math.hypot(car.x-this.camera.x,car.y-this.camera.y)/1800);c.save();c.translate(x,y);c.rotate(car.angle-(player.vehicle?player.angle:0));c.scale(s,s);c.fillStyle='#1e2a30aa';c.beginPath();c.ellipse(0,8,36,16,0,0,Math.PI*2);c.fill();c.fillStyle=car.color;c.beginPath();c.roundRect(-31,-15,62,30,8);c.fill();c.fillStyle='#9fd5d0';c.beginPath();c.roundRect(-16,-12,30,23,7);c.fill();c.fillStyle='#fff0cb';c.fillRect(25,-10,4,6);c.fillRect(25,5,4,6);c.fillStyle='#27363d';c.fillRect(-20,-19,13,5);c.fillRect(11,-19,13,5);c.fillRect(-20,14,13,5);c.fillRect(11,14,13,5);if(car.police){c.fillStyle=Math.floor(car.sirenPhase)%2?'#f24e51':'#4dafff';c.fillRect(-4,-18,10,5);}if(hero){c.fillStyle='#f6d77c';c.fillRect(-5,-2,10,4);}c.restore();}
+ drawPerson(p,hero=false){const c=this.ctx,x=640+(p.x-this.camera.x)*.42,y=490+(p.y-this.camera.y)*.23,s=Math.max(.35,(p.scale||1)*(1-Math.hypot(p.x-this.camera.x,p.y-this.camera.y)/1800));c.save();c.translate(x,y);c.scale(s,s);c.fillStyle='#22333aaa';c.beginPath();c.ellipse(0,3,7,4,0,0,Math.PI*2);c.fill();c.fillStyle=p.color||'#edc178';c.fillRect(-5,-19,10,16);c.fillStyle=p.skin||'#bb805c';c.beginPath();c.arc(0,-23,5,0,Math.PI*2);c.fill();if(hero){c.fillStyle='#f8e8c3';c.fillRect(-4,-18,8,13);}c.restore();}
+ drawShadows(state){const c=this.ctx;for(const car of state.cars.slice(0,18)){const x=640+(car.x-this.camera.x)*.4,y=490+(car.y-this.camera.y)*.22;c.fillStyle='#242c2c33';c.beginPath();c.ellipse(x,y+10,25,8,0,0,Math.PI*2);c.fill();}}
+ drawPost(state){const c=this.ctx;const g=c.createRadialGradient(640,350,240,640,350,740);g.addColorStop(0,'#ffdfaa00');g.addColorStop(1,'#5d343022');c.fillStyle=g;c.fillRect(0,0,1280,720);if(state.player.vehicle&&Math.abs(state.player.vehicle.speed)>260)this.drawSpeedLines(state.player.vehicle.speed);}
+ drawSpeedLines(speed){const c=this.ctx;c.strokeStyle='#fff4d866';c.lineWidth=2;for(let i=0;i<15;i++){const y=(i*71+this.time*speed*.45)%720,x=(i*167)%1280;c.beginPath();c.moveTo(x,y);c.lineTo(x+55,y-7);c.stroke();}}
 }
-
-export function createRenderer(canvas) {
-  const context = canvas.getContext('2d');
-  const view = { scale: 1, x: 0, y: 0 };
-  const scoreLabel = cachedLabel('Score ');
-  const levelLabel = cachedLabel('Level ');
-  const finalLabel = cachedLabel('Score ');
-  const bestLabel = cachedLabel('Best ');
-
-  function resize() {
-    const ratio = window.devicePixelRatio || 1;
-    const width = Math.round(window.innerWidth * ratio);
-    const height = Math.round(window.innerHeight * ratio);
-    canvas.width = width;
-    canvas.height = height;
-    view.scale = Math.min(width / FIELD.width, height / FIELD.height);
-    view.x = (width - FIELD.width * view.scale) / 2;
-    view.y = (height - FIELD.height * view.scale) / 2;
-  }
-
-  const fonts = new Map();
-  function text(value, x, y, size, color, align) {
-    if (!fonts.has(size)) fonts.set(size, `${size}px ${FONT}`);
-    context.font = fonts.get(size);
-    context.fillStyle = color;
-    context.textAlign = align;
-    context.fillText(value, x, y);
-  }
-
-  function drawField(state) {
-    context.fillStyle = PALETTE.sky;
-    context.fillRect(0, 0, FIELD.width, FIELD.height);
-    context.fillStyle = PALETTE.ground;
-    context.fillRect(0, FIELD.groundY, FIELD.width, FIELD.height - FIELD.groundY);
-
-    const items = state.items;
-    for (let index = 0; index < items.length; index += 1) {
-      const item = items[index];
-      if (!item.active) continue;
-      if (item.kind === KIND_COIN) {
-        context.fillStyle = PALETTE.coin;
-        context.beginPath();
-        context.arc(item.x + item.width / 2, item.y + item.height / 2, item.width / 2, 0, Math.PI * 2);
-        context.fill();
-      } else {
-        context.fillStyle = PALETTE.block;
-        context.fillRect(item.x, item.y, item.width, item.height);
-      }
-    }
-
-    const player = state.player;
-    // Blink while invulnerable after a hit: hidden on every other tenth of a second.
-    if (player.invulnerable === 0 || Math.floor(player.invulnerable * 10) % 2 === 1) {
-      context.fillStyle = PALETTE.player;
-      context.fillRect(player.x, player.y, player.width, player.height);
-    }
-  }
-
-  function drawHud(state) {
-    context.textBaseline = 'top';
-    text(scoreLabel(state.score), 24, 20, 28, PALETTE.text, 'left');
-    text(levelLabel(state.level), FIELD.width / 2, 20, 28, PALETTE.text, 'center');
-    const firstLife = FIELD.width - 24 - LIVES * (LIFE_SIZE + LIFE_GAP) + LIFE_GAP;
-    text('Lives', firstLife - 12, 20, 28, PALETTE.text, 'right');
-    for (let life = 0; life < LIVES; life += 1) {
-      context.fillStyle = life < state.lives ? PALETTE.player : PALETTE.ground;
-      context.fillRect(firstLife + life * (LIFE_SIZE + LIFE_GAP), 24, LIFE_SIZE, LIFE_SIZE);
-    }
-  }
-
-  function drawPanel(title, lines, prompt) {
-    const height = PANEL.top + lines.length * PANEL.line + PANEL.bottom;
-    const x = (FIELD.width - PANEL.width) / 2;
-    const y = (FIELD.height - height) / 2;
-    context.fillStyle = PALETTE.panel;
-    context.fillRect(x, y, PANEL.width, height);
-    context.textBaseline = 'alphabetic';
-    text(title, FIELD.width / 2, y + 78, 48, PALETTE.text, 'center');
-    for (let index = 0; index < lines.length; index += 1) {
-      text(lines[index], FIELD.width / 2, y + PANEL.top + index * PANEL.line, 22, PALETTE.muted, 'center');
-    }
-    text(prompt, FIELD.width / 2, y + height - 40, 24, PALETTE.coin, 'center');
-  }
-
-  const TITLE_LINES = ['Dodge the red blocks. Catch the gold coins.', 'Move with ← → or A D.  Pause with P.', ''];
-  const PAUSED_LINES = ['The blocks will wait for you.'];
-  const OVER_LINES = ['', ''];
-
-  /** Paint one frame: the field, then the HUD or a panel for the screen the game is on. */
-  function draw(state, screen, best) {
-    context.setTransform(1, 0, 0, 1, 0, 0);
-    context.fillStyle = PALETTE.backdrop;
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.setTransform(view.scale, 0, 0, view.scale, view.x, view.y);
-    drawField(state);
-    if (screen === SCREEN_TITLE) {
-      TITLE_LINES[2] = bestLabel(best);
-      drawPanel('Block Dodger', TITLE_LINES, 'Press Space or click to start');
-      return;
-    }
-    drawHud(state);
-    if (screen === SCREEN_PAUSED) drawPanel('Paused', PAUSED_LINES, 'Press P to resume');
-    else if (screen === SCREEN_OVER) {
-      OVER_LINES[0] = finalLabel(state.score);
-      OVER_LINES[1] = bestLabel(best);
-      drawPanel('Game over', OVER_LINES, 'Press Space or click to play again');
-    }
-  }
-
-  resize();
-  window.addEventListener('resize', resize);
-  return { draw };
-}
+export function drawSky(ctx){const g=ctx.createLinearGradient(0,0,0,720);g.addColorStop(0,PALETTE.skyTop);g.addColorStop(1,PALETTE.sky);ctx.fillStyle=g;ctx.fillRect(0,0,1280,720);}
+export function drawSunAndFlare(ctx){ctx.fillStyle=PALETTE.sun;ctx.beginPath();ctx.arc(1010,195,38,0,Math.PI*2);ctx.fill();}
+export function drawGround(ctx){ctx.fillStyle=PALETTE.road;ctx.fillRect(0,300,1280,420);}
+export function drawWorldDepthSorted(ctx,objects){objects.forEach(o=>o.draw(ctx));}
+export function drawShadows(ctx){ctx.fillStyle='#172a3822';ctx.fillRect(0,660,1280,60);}
+export function drawPost(ctx){ctx.fillStyle='#ffe4b00b';ctx.fillRect(0,0,1280,720);}
+export function drawSpeedLines(ctx,speed){if(speed>250){ctx.strokeStyle='#ffffff77';ctx.beginPath();ctx.moveTo(80,120);ctx.lineTo(150,110);ctx.stroke();}}
